@@ -15,6 +15,7 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
     })
 
     const [transactionType, setTransactionType] = useState('entry') // 'entry' or 'exit'
+    const [feeCalculation, setFeeCalculation] = useState('deduct') // 'deduct' or 'add'
     const [showPassword, setShowPassword] = useState(false) // Toggle for password visibility
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ text: '', type: '' }) // 'success' or 'error'
@@ -22,17 +23,8 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
     // Calculated Values
     const amount = parseFloat(formData.amount) || 0
     const fee = (amount * formData.percentage) / 100
-    const total = transactionType === 'entry' ? (amount - fee) : (amount + fee)
-    // ENTRY: We receive Amount, we take Fee, client gets Total (Amount - Fee) -> Wait, usually "Forfait Total" is what is recorded.
-    // Let's stick to the previous logic for "Entrée" which seemed to be: Input Amount, Calculate Fee, Total = Amount + Fee (or whatever the logic was).
-    // Actually, let's look at the previous code: `total = amount + fee`.
-    // If it's an EXIT (Sortie), logic might be different?
-    // User asked: "somme entrée et sortie".
-    // Let's keep the calculation simple for now: 
-    // For BOTH: We calculate a "Forfait" (Fee) based on percentage.
-    // The "Total" display might need to be adjusted or just kept as "Montant + Frais" or "Montant - Frais"?
-    // Previous logic: total = amount + fee. 
-    // Let's keep it consistent: Total is always the base amount + the calculated fee, representing the total transaction value including fees.
+    // L'utilisateur peut choisir si le pourcentage est ajouté (100k + 4k = 104k) ou déduit (100k - 4k = 96k)
+    const total = feeCalculation === 'deduct' ? (amount - fee) : (amount + fee)
 
     // Helper to format currency
     const formatMoney = (val, curr) => {
@@ -149,6 +141,30 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
                             {curr === 'USD' ? 'USD ($)' : 'FCFA (XAF)'}
                         </button>
                     ))}
+                </div>
+
+                {/* Mode de calcul du pourcentage */}
+                <div className="flex bg-gray-100 p-1 md:p-1.5 rounded-xl border border-gray-200">
+                    <button
+                        type="button"
+                        onClick={() => setFeeCalculation('deduct')}
+                        className={`flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 flex justify-center items-center gap-1.5 ${feeCalculation === 'deduct'
+                                ? 'bg-white text-accent-primary shadow-sm ring-1 ring-black/5 scale-100'
+                                : 'text-text-muted hover:text-text-main hover:bg-gray-200/50 scale-95'
+                            }`}
+                    >
+                        Sans pourcentage (- {formData.percentage}%)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setFeeCalculation('add')}
+                        className={`flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 flex justify-center items-center gap-1.5 ${feeCalculation === 'add'
+                                ? 'bg-white text-accent-primary shadow-sm ring-1 ring-black/5 scale-100'
+                                : 'text-text-muted hover:text-text-main hover:bg-gray-200/50 scale-95'
+                            }`}
+                    >
+                        Avec pourcentage (+ {formData.percentage}%)
+                    </button>
                 </div>
             </div>
 
