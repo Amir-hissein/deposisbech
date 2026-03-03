@@ -1,5 +1,41 @@
 import React, { useState, useEffect } from 'react'
-import { Loader2, ArrowRight, Lock, Key, Eye, EyeOff, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
+import { Loader2, ArrowRight, Lock, Key, Eye, EyeOff, ArrowUpCircle, ArrowDownCircle, CalendarDays } from 'lucide-react'
+
+// ── Calcul de la période mensuelle 25 → 24 ──────────────────────────────────
+// Règle : si le jour >= 25, la période commence ce mois-ci (25 M → 24 M+1)
+//         si le jour <  25, la période a commencé le 25 du mois précédent
+const MONTHS_FR = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
+
+function getMonthlyPeriod(dateStr) {
+    if (!dateStr) return null
+    const d = new Date(dateStr + 'T12:00:00') // Heure de midi pour éviter décalage timezone
+    const day = d.getDate()
+    const year = d.getFullYear()
+    const month = d.getMonth() // 0-indexed
+
+    let startMonth, startYear, endMonth, endYear
+
+    if (day >= 25) {
+        // Période: 25 de ce mois → 24 du mois suivant
+        startMonth = month
+        startYear = year
+        endMonth = month + 1 > 11 ? 0 : month + 1
+        endYear = month + 1 > 11 ? year + 1 : year
+    } else {
+        // Période: 25 du mois précédent → 24 de ce mois
+        startMonth = month - 1 < 0 ? 11 : month - 1
+        startYear = month - 1 < 0 ? year - 1 : year
+        endMonth = month
+        endYear = year
+    }
+
+    // Label affiché: "25 Mars 2026 → 24 Avr 2026"
+    const label = `25 ${MONTHS_FR[startMonth]} ${startYear} → 24 ${MONTHS_FR[endMonth]} ${endYear}`
+    // Clé de période au format YYYY-MM (mois du mois de fin)
+    const periodeKey = `${endYear}-${String(endMonth + 1).padStart(2, '0')}`
+
+    return { label, periodeKey }
+}
 
 // ⚠️ IMPORTANT: Remplacez cette URL par votre propre déploiement Google Apps Script
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx8n7exgoMInr7i-2nLusAKyuo6nqCXo985V9dBpwxYENmTIE_XMvX2yNoXfKKclicy/exec"
@@ -52,6 +88,7 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
         setLoading(true)
         setMessage({ text: '', type: '' })
 
+        const period = getMonthlyPeriod(formData.date)
         const transactionData = {
             date: formData.date,
             type: transactionType, // 'entry' or 'exit'
@@ -61,7 +98,9 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
             pourcentage: parseFloat(formData.percentage),
             montant_preleve: fee,
             forfait_total: total,
-            devise: activeCurrency
+            devise: activeCurrency,
+            periode: period ? period.periodeKey : '', // ex: "2026-03"
+            periode_label: period ? period.label : ''  // ex: "25 Févr 2026 → 24 Mars 2026"
         }
 
         try {
@@ -149,8 +188,8 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
                         type="button"
                         onClick={() => setFeeCalculation('deduct')}
                         className={`flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 flex justify-center items-center gap-1.5 ${feeCalculation === 'deduct'
-                                ? 'bg-white text-accent-primary shadow-sm ring-1 ring-black/5 scale-100'
-                                : 'text-text-muted hover:text-text-main hover:bg-gray-200/50 scale-95'
+                            ? 'bg-white text-accent-primary shadow-sm ring-1 ring-black/5 scale-100'
+                            : 'text-text-muted hover:text-text-main hover:bg-gray-200/50 scale-95'
                             }`}
                     >
                         Sans pourcentage (- {formData.percentage}%)
@@ -159,8 +198,8 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
                         type="button"
                         onClick={() => setFeeCalculation('add')}
                         className={`flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 flex justify-center items-center gap-1.5 ${feeCalculation === 'add'
-                                ? 'bg-white text-accent-primary shadow-sm ring-1 ring-black/5 scale-100'
-                                : 'text-text-muted hover:text-text-main hover:bg-gray-200/50 scale-95'
+                            ? 'bg-white text-accent-primary shadow-sm ring-1 ring-black/5 scale-100'
+                            : 'text-text-muted hover:text-text-main hover:bg-gray-200/50 scale-95'
                             }`}
                     >
                         Avec pourcentage (+ {formData.percentage}%)
@@ -180,6 +219,15 @@ const TransactionForm = ({ activeCurrency, setActiveCurrency, exchangeRate, onAd
                             className="w-full bg-bg-input border border-gray-200 rounded-xl px-3 py-3 md:px-4 md:py-3.5 text-sm md:text-base text-text-main font-semibold focus:outline-none focus:border-accent-primary focus:ring-4 focus:ring-accent-primary/10 transition-all shadow-sm hover:border-gray-300 appearance-none min-h-[46px] md:min-h-[52px]"
                             required
                         />
+                        {/* Badge de période mensuelle */}
+                        {getMonthlyPeriod(formData.date) && (
+                            <div className="mt-2 flex items-center gap-1.5 bg-accent-primary/8 border border-accent-primary/20 rounded-lg px-3 py-1.5">
+                                <CalendarDays className="w-3.5 h-3.5 text-accent-primary shrink-0" />
+                                <span className="text-[10px] md:text-xs font-bold text-accent-primary tracking-wide">
+                                    Période : {getMonthlyPeriod(formData.date).label}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Name */}
